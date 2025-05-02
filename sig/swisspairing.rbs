@@ -1,4 +1,51 @@
 module Swisspairing
   VERSION: String
   # See the writing guide of rbs: https://github.com/ruby/rbs#guides
+
+  class Error < StandardError
+  end
+
+  FIDE_TITLES: Array[String]
+
+  class Player
+    attr_reader name: String
+    attr_reader rating: Integer
+    attr_reader title: String?
+    attr_reader id: Integer?
+    attr_accessor score: Float
+    attr_accessor opponents: Array[Integer]
+    attr_accessor colors: Array[String]
+
+    def initialize: (name: String, rating: Integer, ?title: String?, ?id: Integer?) -> void
+    def color_balance: -> Integer
+    def can_receive_bye?: -> bool
+    def played_against?: (Player) -> bool
+  end
+
+  class Tournament
+    attr_reader players: Array[Player]
+    attr_reader current_round: Integer
+    attr_reader total_rounds: Integer
+    attr_reader results: Array[[Pairing, String]]
+
+    def initialize: (players: Array[Player], total_rounds: Integer, ?accelerated: bool) -> void
+    def generate_pairings: -> Array[Pairing]
+    def apply_result: (Pairing, String) -> void
+
+    private
+    def validate_and_sort_players: -> void
+    def accelerate_pairings: (Hash[Float, Array[Player]]) -> void
+    def valid_colors?: (Player, Player) -> bool
+    def should_swap_colors?: (Player, Player) -> bool
+    def select_best_opponent: (Player, Array[Player]) -> Player
+    def select_bye_player: (Array[Player]) -> Player
+  end
+
+  class Pairing
+    attr_reader white: Player
+    attr_reader black: Player?
+    attr_reader is_bye: bool
+
+    def initialize: (white: Player, ?black: Player?) -> void
+  end
 end

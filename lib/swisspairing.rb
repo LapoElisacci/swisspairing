@@ -32,25 +32,6 @@ module Swisspairing
     def played_against?(player)
       opponents.include?(player.id)
     end
-
-    # Buchholz score (sum of opponents' scores)
-    def buchholz_score(all_players)
-      opponents.sum { |opp_id| all_players.find { |p| p.id == opp_id }&.score || 0 }
-    end
-
-    # Sonneborn-Berger score
-    def sonneborn_berger_score(all_players, results)
-      results.sum do |pairing, result|
-        next 0 unless [pairing.white.id, pairing.black.id].include?(id)
-        opponent = pairing.white.id == id ? pairing.black : pairing.white
-        opponent_score = opponent.score
-        if pairing.white.id == id
-          result == "1-0" ? opponent_score : (result == "½-½" ? opponent_score / 2.0 : 0)
-        else
-          result == "0-1" ? opponent_score : (result == "½-½" ? opponent_score / 2.0 : 0)
-        end
-      end
-    end
   end
 
   class Tournament
@@ -63,17 +44,6 @@ module Swisspairing
       @results = []
       @accelerated = accelerated
       validate_and_sort_players
-    end
-
-    def standings
-      players.sort_by do |player|
-        [
-          -player.score,
-          -player.buchholz_score(players),
-          -player.sonneborn_berger_score(players, @results),
-          -player.rating
-        ]
-      end
     end
 
     def generate_pairings

@@ -97,42 +97,6 @@ RSpec.describe Swisspairing do
     end
   end
 
-  describe "Tournament standings and tie-breaks" do
-    let(:tournament) { Swisspairing::Tournament.new(players: players, total_rounds: 3) }
-
-    it "calculates standings with tie-breaks" do
-      # Play two rounds
-      2.times do
-        pairings = tournament.generate_pairings
-        pairings.each { |p| tournament.apply_result(p, p.is_bye ? "1" : "1-0") }
-      end
-
-      standings = tournament.standings
-      first_place = standings.first
-      second_place = standings[1]
-
-      # If players have same score, tie-breaks should determine order
-      if first_place.score == second_place.score
-        expect(first_place.buchholz_score(players)).to be >= second_place.buchholz_score(players)
-      else
-        expect(first_place.score).to be > second_place.score
-      end
-    end
-
-    it "calculates Sonneborn-Berger scores correctly" do
-      # Play one round with a draw
-      pairings = tournament.generate_pairings
-      tournament.apply_result(pairings.first, "½-½")
-
-      white_player = pairings.first.white
-      black_player = pairings.first.black
-
-      # Both players should have Sonneborn-Berger scores of their opponent's score / 2
-      expect(white_player.sonneborn_berger_score(players, tournament.results))
-        .to eq(black_player.score / 2.0)
-    end
-  end
-
   describe "Enhanced color allocation" do
     let(:tournament) { Swisspairing::Tournament.new(players: players, total_rounds: 5) }
 
