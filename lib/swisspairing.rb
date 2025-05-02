@@ -7,6 +7,7 @@ module Swisspairing
 
   FIDE_TITLES = %w[GM IM WGM FM WIM CM WFM WCM].freeze
 
+  # Represents a player in a chess tournament with FIDE rating and optional title
   class Player
     attr_reader :name, :rating, :title, :id
     attr_accessor :score, :opponents, :colors
@@ -18,15 +19,15 @@ module Swisspairing
       @id = id
       @score = 0
       @opponents = []
-      @colors = [] # 'W' for white, 'B' for black, '=' for bye
+      @colors = [] # "W" for white, "B" for black, "=" for bye
     end
 
     def color_balance
-      colors.count('W') - colors.count('B')
+      colors.count("W") - colors.count("B")
     end
 
     def can_receive_bye?
-      !colors.include?('=')
+      !colors.include?("=")
     end
 
     def played_against?(player)
@@ -34,8 +35,11 @@ module Swisspairing
     end
   end
 
+  # Manages a chess tournament using FIDE Swiss pairing rules
   class Tournament
     attr_reader :players, :current_round, :total_rounds, :results
+
+    VALID_RESULTS = ["1-0", "0-1", "1/2-1/2", "1", "0-0"].freeze
 
     def initialize(players:, total_rounds:, accelerated: false)
       @players = players
@@ -54,7 +58,7 @@ module Swisspairing
       pairings = []
       unpaired_players = []
 
-      score_groups.each do |score, players_in_group|
+      score_groups.each_value do |players_in_group|
         # Add any unpaired players from higher score groups
         group_players = unpaired_players + players_in_group
         unpaired_players = []
@@ -74,12 +78,7 @@ module Swisspairing
           group_players.delete(black_candidate)
           group_players.shift # remove white_candidate
 
-          # Determine colors based on previous allocations
-          if should_swap_colors?(white_candidate, black_candidate)
-            pairings << Pairing.new(white: black_candidate, black: white_candidate)
-          else
-            pairings << Pairing.new(white: white_candidate, black: black_candidate)
-          end
+          pairings << create_color_balanced_pairing(white_candidate, black_candidate)
         end
 
         # Add remaining player to unpaired list for next score group
@@ -92,14 +91,14 @@ module Swisspairing
         pairings << Pairing.new(white: bye_player)
       end
 
-      if @accelerated && @current_round <= 2
-        accelerate_pairings(score_groups)
-      end
+      accelerate_pairings if @accelerated && @current_round <= 2
 
       pairings
     end
 
     def apply_result(pairing, result)
+      raise Error, "Invalid result: #{result}" unless VALID_RESULTS.include?(result)
+
       case result
       when "1-0"
         pairing.white.score += 1
@@ -108,22 +107,13 @@ module Swisspairing
       when "1/2-1/2"
         pairing.white.score += 0.5
         pairing.black.score += 0.5
-      when "0-0"
-        # Both players get 0 points (double forfeit)
-      when "1"  # bye
+      when "1" # bye
         pairing.white.score += 1 if pairing.is_bye
-      else
-        raise Error, "Invalid result: #{result}"
+      when "0-0" # double forfeit
+        # No points awarded
       end
 
-      unless pairing.is_bye
-        pairing.white.opponents << pairing.black.id
-        pairing.black.opponents << pairing.white.id
-        pairing.white.colors << "W"
-        pairing.black.colors << "B"
-      else
-        pairing.white.colors << "="
-      end
+      update_player_records(pairing)
 
       @results << [pairing, result]
     end
@@ -141,16 +131,13 @@ module Swisspairing
       end
     end
 
-    def accelerate_pairings(score_groups)
-      return unless @accelerated && @current_round <= 2
-
+    def accelerate_pairings
       # Split players into top and bottom half for acceleration
       mid_point = (@players.length / 2.0).ceil
       top_half = @players[0...mid_point]
-      bottom_half = @players[mid_point..]
 
       # Add virtual point to top half players in first two rounds
-      top_half.each { |p| p.score += 1 } if @current_round <= 2
+      top_half.each { |p| p.score += 1 }
     end
 
     def valid_colors?(player1, player2)
@@ -158,20 +145,25 @@ module Swisspairing
 
       # Enhanced color allocation rules
       [player1, player2].none? do |p|
-        # No more than two same colors in a row
-        p.colors.last(2) == ["W", "W"] || p.colors.last(2) == ["B", "B"] ||
-        # No color difference > 2
-        p.color_balance.abs > 2 ||
-        # No same color three times more than the other
-        p.colors.count("W") > (p.colors.count("B") + 2) ||
-        p.colors.count("B") > (p.colors.count("W") + 2)
+        p.colors.last(2) == %w[W W] || p.colors.last(2) == %w[B B] ||
+          p.color_balance.abs > 2 ||
+          p.colors.count("W") > (p.colors.count("B") + 2) ||
+          p.colors.count("B") > (p.colors.count("W") + 2)
+      end
+    end
+
+    def create_color_balanced_pairing(white, black)
+      if should_swap_colors?(white, black)
+        Pairing.new(white: black, black: white)
+      else
+        Pairing.new(white: white, black: black)
       end
     end
 
     def should_swap_colors?(white, black)
       return true if white.color_balance > black.color_balance + 1
-      return true if white.colors.last == "W" && black.colors.last == "B"
-      false
+
+      white.colors.last == "W" && black.colors.last == "B"
     end
 
     def select_best_opponent(player, candidates)
@@ -189,8 +181,20 @@ module Swisspairing
       candidates.select(&:can_receive_bye?)
                 .min_by { |p| [p.score, p.rating] } || candidates.first
     end
+
+    def update_player_records(pairing)
+      if pairing.is_bye
+        pairing.white.colors << "="
+      else
+        pairing.white.opponents << pairing.black.id
+        pairing.black.opponents << pairing.white.id
+        pairing.white.colors << "W"
+        pairing.black.colors << "B"
+      end
+    end
   end
 
+  # Represents a pairing between two players in a tournament round
   class Pairing
     attr_reader :white, :black, :is_bye
 

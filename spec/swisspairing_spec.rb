@@ -19,9 +19,9 @@ RSpec.describe Swisspairing do
     let(:tournament) { Swisspairing::Tournament.new(players: players, total_rounds: 3) }
 
     it "sorts players correctly by rating and title" do
-      expect(tournament.players.map(&:name)).to eq([
-        "GM Player", "IM Player", "FM Player", "Player A", "Player B"
-      ])
+      expect(tournament.players.map(&:name)).to eq(
+        ["GM Player", "IM Player", "FM Player", "Player A", "Player B"]
+      )
     end
 
     it "generates valid first round pairings" do
