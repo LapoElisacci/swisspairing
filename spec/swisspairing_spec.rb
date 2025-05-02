@@ -126,4 +126,65 @@ RSpec.describe Swisspairing do
       end
     end
   end
+
+  describe "Result handling" do
+    let(:tournament) { Swisspairing::Tournament.new(players: players, total_rounds: 3) }
+    let(:pairing) { tournament.generate_pairings.first }
+
+    it "handles white win (1-0) correctly" do
+      tournament.apply_result(pairing, "1-0")
+      expect(pairing.white.score).to eq(1)
+      expect(pairing.black.score).to eq(0)
+      expect(pairing.white.colors).to include("W")
+      expect(pairing.black.colors).to include("B")
+    end
+
+    it "handles black win (0-1) correctly" do
+      tournament.apply_result(pairing, "0-1")
+      expect(pairing.white.score).to eq(0)
+      expect(pairing.black.score).to eq(1)
+      expect(pairing.white.colors).to include("W")
+      expect(pairing.black.colors).to include("B")
+    end
+
+    it "handles draw (1/2-1/2) correctly" do
+      tournament.apply_result(pairing, "1/2-1/2")
+      expect(pairing.white.score).to eq(0.5)
+      expect(pairing.black.score).to eq(0.5)
+      expect(pairing.white.colors).to include("W")
+      expect(pairing.black.colors).to include("B")
+    end
+
+    it "handles double forfeit (0-0) correctly" do
+      tournament.apply_result(pairing, "0-0")
+      expect(pairing.white.score).to eq(0)
+      expect(pairing.black.score).to eq(0)
+      expect(pairing.white.colors).to include("W")
+      expect(pairing.black.colors).to include("B")
+    end
+
+    it "handles bye (1) correctly" do
+      bye_pairing = tournament.generate_pairings.find(&:is_bye)
+      next unless bye_pairing # Skip if no bye pairing exists
+
+      tournament.apply_result(bye_pairing, "1")
+      expect(bye_pairing.white.score).to eq(1)
+      expect(bye_pairing.white.colors).to include("=")
+    end
+
+    it "rejects invalid results" do
+      expect { tournament.apply_result(pairing, "invalid") }.to raise_error(Swisspairing::Error)
+    end
+
+    it "correctly records results in tournament history" do
+      tournament.apply_result(pairing, "1-0")
+      expect(tournament.results).to include([pairing, "1-0"])
+    end
+
+    it "properly updates player opponents after a game" do
+      tournament.apply_result(pairing, "1-0")
+      expect(pairing.white.opponents).to include(pairing.black.id)
+      expect(pairing.black.opponents).to include(pairing.white.id)
+    end
+  end
 end

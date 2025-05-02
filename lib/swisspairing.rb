@@ -105,9 +105,11 @@ module Swisspairing
         pairing.white.score += 1
       when "0-1"
         pairing.black.score += 1
-      when "½-½"
+      when "1/2-1/2"
         pairing.white.score += 0.5
         pairing.black.score += 0.5
+      when "0-0"
+        # Both players get 0 points (double forfeit)
       when "1"  # bye
         pairing.white.score += 1 if pairing.is_bye
       else
