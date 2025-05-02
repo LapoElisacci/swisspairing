@@ -1,43 +1,155 @@
-# Swisspairing
+# SwissPairing
 
-TODO: Delete this and the text below, and describe your gem
+A Ruby gem that implements FIDE-compliant Swiss pairing system for chess tournaments. This gem follows the official FIDE Swiss Rules effective from July 1, 2025.
 
-Welcome to your new gem! In this directory, you'll find the files you need to be able to package up your Ruby library into a gem. Put your Ruby code in the file `lib/swisspairing`. To experiment with that code, run `bin/console` for an interactive prompt.
+## Features
+
+- FIDE-compliant Swiss pairing system
+- Handles player ratings and FIDE titles
+- Supports tournament scoring and results
+- Manages color allocation according to FIDE rules
+- Handles byes for odd numbers of players
+- Prevents rematches between players
 
 ## Installation
 
-TODO: Replace `UPDATE_WITH_YOUR_GEM_NAME_IMMEDIATELY_AFTER_RELEASE_TO_RUBYGEMS_ORG` with your gem name right after releasing it to RubyGems.org. Please do not do it earlier due to security reasons. Alternatively, replace this section with instructions to install your gem from git if you don't plan to release to RubyGems.org.
+Add this line to your application's Gemfile:
 
-Install the gem and add to the application's Gemfile by executing:
-
-```bash
-bundle add UPDATE_WITH_YOUR_GEM_NAME_IMMEDIATELY_AFTER_RELEASE_TO_RUBYGEMS_ORG
+```ruby
+gem 'swisspairing'
 ```
 
-If bundler is not being used to manage dependencies, install the gem by executing:
+And then execute:
 
 ```bash
-gem install UPDATE_WITH_YOUR_GEM_NAME_IMMEDIATELY_AFTER_RELEASE_TO_RUBYGEMS_ORG
+$ bundle install
+```
+
+Or install it yourself as:
+
+```bash
+$ gem install swisspairing
 ```
 
 ## Usage
 
-TODO: Write usage instructions here
+### Creating Players
 
-## Development
+```ruby
+require 'swisspairing'
 
-After checking out the repo, run `bin/setup` to install dependencies. Then, run `rake spec` to run the tests. You can also run `bin/console` for an interactive prompt that will allow you to experiment.
+# Create players with ratings and optional FIDE titles
+players = [
+  Swisspairing::Player.new(name: "GM Smith", rating: 2500, title: "GM", id: 1),
+  Swisspairing::Player.new(name: "IM Jones", rating: 2400, title: "IM", id: 2),
+  Swisspairing::Player.new(name: "FM Brown", rating: 2300, title: "FM", id: 3),
+  Swisspairing::Player.new(name: "Alice", rating: 2200, id: 4)
+]
+```
 
-To install this gem onto your local machine, run `bundle exec rake install`. To release a new version, update the version number in `version.rb`, and then run `bundle exec rake release`, which will create a git tag for the version, push git commits and the created tag, and push the `.gem` file to [rubygems.org](https://rubygems.org).
+### Setting Up a Tournament
 
-## Contributing
+```ruby
+# Create a new tournament with players and number of rounds
+tournament = Swisspairing::Tournament.new(players: players, total_rounds: 5)
+```
 
-Bug reports and pull requests are welcome on GitHub at https://github.com/[USERNAME]/swisspairing. This project is intended to be a safe, welcoming space for collaboration, and contributors are expected to adhere to the [code of conduct](https://github.com/[USERNAME]/swisspairing/blob/main/CODE_OF_CONDUCT.md).
+### Generating Pairings
+
+```ruby
+# Generate pairings for the current round
+pairings = tournament.generate_pairings
+
+# Process each pairing
+pairings.each do |pairing|
+  if pairing.is_bye
+    puts "#{pairing.white.name} receives a bye"
+    tournament.apply_result(pairing, "1")
+  else
+    puts "#{pairing.white.name} (White) vs #{pairing.black.name} (Black)"
+    # After the game, apply the result:
+    # "1-0" for white win
+    # "0-1" for black win
+    # "½-½" for draw
+    tournament.apply_result(pairing, "1-0") # example: white wins
+  end
+end
+```
+
+## Advanced Features
+
+### Acceleration
+
+For tournaments with many players, you can enable acceleration to help stronger players meet each other earlier:
+
+```ruby
+tournament = Swisspairing::Tournament.new(
+  players: players,
+  total_rounds: 5,
+  accelerated: true # Enable acceleration
+)
+```
+
+### Tie-Breaks
+
+The system implements official FIDE tie-break systems:
+
+1. Direct score
+2. Buchholz score (sum of opponents' scores)
+3. Sonneborn-Berger score
+4. Rating
+
+Get tournament standings with tie-breaks:
+
+```ruby
+standings = tournament.standings
+standings.each_with_index do |player, index|
+  puts "#{index + 1}. #{player.name} (#{player.score} pts)"
+end
+```
+
+### Color Allocation
+
+The system follows strict FIDE color allocation rules:
+
+- No player gets the same color three times in a row
+- Color difference cannot exceed +2 or -2
+- Players alternate colors when possible
+- Color allocation considers previous tournament history
+
+## FIDE Compliance
+
+This gem strictly follows FIDE Swiss Rules from the FIDE Handbook C.04:
+
+- C.04.1: Basic Rules for Swiss Systems
+- C.04.2: General Handling Rules
+- C.04.3: FIDE (Dutch) System
+
+Features include:
+- Proper initial ranking by rating and title
+- Score-based pairing groups
+- Correct color allocation rules
+- Acceleration method for large tournaments
+- Official tie-break systems
+- Proper handling of byes and odd numbers of players
+
+## Error Handling
+
+The system includes various safeguards:
+
+```ruby
+begin
+  tournament.generate_pairings
+rescue Swisspairing::Error => e
+  puts "Tournament error: #{e.message}"
+end
+```
+
+Common errors:
+- Tournament already complete
+- Invalid result format
+- Invalid player data
 
 ## License
 
 The gem is available as open source under the terms of the [MIT License](https://opensource.org/licenses/MIT).
-
-## Code of Conduct
-
-Everyone interacting in the Swisspairing project's codebases, issue trackers, chat rooms and mailing lists is expected to follow the [code of conduct](https://github.com/[USERNAME]/swisspairing/blob/main/CODE_OF_CONDUCT.md).
